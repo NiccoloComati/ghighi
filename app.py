@@ -105,7 +105,6 @@ def ensure_columns(df: pd.DataFrame) -> pd.DataFrame:
 def main() -> None:
     st.set_page_config(page_title="Ghighi Quotes", page_icon="📈", layout="wide")
     st.title("Ghighi Quotes")
-    st.caption("Log personal quotes for events and track implied probabilities over time.")
 
     storage = get_storage()
     data = ensure_columns(storage.read())
@@ -113,18 +112,21 @@ def main() -> None:
     events = sorted([e for e in data["event"].dropna().unique() if str(e).strip()])
     players = sorted([p for p in data["player"].dropna().unique() if str(p).strip()])
 
-    st.subheader("Select event")
-    event_options = events + ["+ Add new event"]
-    event_choice = st.selectbox("Event", event_options if event_options else ["+ Add new event"])
-    if event_choice == "+ Add new event":
-        event_name = st.text_input("New event name")
+    st.subheader("Seleziona evento")
+    event_options = events + ["+ Aggiungi nuovo evento"]
+    event_choice = st.selectbox(
+        "Evento",
+        event_options if event_options else ["+ Aggiungi nuovo evento"],
+    )
+    if event_choice == "+ Aggiungi nuovo evento":
+        event_name = st.text_input("Nome nuovo evento")
     else:
         event_name = event_choice
 
     st.divider()
 
     if event_name:
-        st.subheader(f"Quotes for: {event_name}")
+        st.subheader(f"Quote per: {event_name}")
         event_data = data[data["event"] == event_name].copy()
         event_data["date"] = pd.to_datetime(event_data["date"], errors="coerce")
 
@@ -134,7 +136,7 @@ def main() -> None:
             chart_data = event_data.dropna(subset=["player", "date"]).copy()
             chart_data = chart_data.sort_values("date")
             if chart_data.empty:
-                st.write("No quotes yet for this event.")
+                st.write("Ancora nessuna quote per questo evento.")
             else:
                 max_quote = chart_data["quote"].max()
                 y_min = 1.0
@@ -143,20 +145,20 @@ def main() -> None:
                     alt.Chart(chart_data)
                     .mark_line(point=True)
                     .encode(
-                        x=alt.X("date:T", title="Date"),
+                        x=alt.X("date:T", title="Data"),
                         y=alt.Y(
                             "quote:Q",
-                            title="Quote",
+                            title="Quota",
                             scale=alt.Scale(domain=[y_min, y_max]),
                         ),
-                        color=alt.Color("player:N", title="Player"),
+                        color=alt.Color("player:N", title="Giocatore"),
                         tooltip=[
-                            alt.Tooltip("player:N", title="Player"),
-                            alt.Tooltip("date:T", title="Date", format="%Y-%m-%d"),
-                            alt.Tooltip("quote:Q", title="Quote", format=".2f"),
+                            alt.Tooltip("player:N", title="Giocatore"),
+                            alt.Tooltip("date:T", title="Data", format="%Y-%m-%d"),
+                            alt.Tooltip("quote:Q", title="Quota", format=".2f"),
                             alt.Tooltip(
                                 "implied_probability:Q",
-                                title="Implied prob",
+                                title="Prob. implicita",
                                 format=".2%",
                             ),
                         ],
@@ -166,7 +168,7 @@ def main() -> None:
 
         with table_col:
             if event_data.empty:
-                st.write("No quotes yet for this event.")
+                st.write("Ancora nessuna quote per questo evento.")
             else:
                 event_data["timestamp_utc"] = pd.to_datetime(
                     event_data["timestamp_utc"], errors="coerce"
@@ -189,18 +191,21 @@ def main() -> None:
 
         st.divider()
 
-    st.subheader("Add a quote")
-    st.write("Date is fixed automatically (UTC).")
+    st.subheader("Aggiungi una quota")
+    st.write("La data e fissata automaticamente (UTC).")
 
-    player_options = players + ["+ Add new player"]
-    player_choice = st.selectbox("Player", player_options if player_options else ["+ Add new player"])
-    if player_choice == "+ Add new player":
-        player_name = st.text_input("New player name")
+    player_options = players + ["+ Aggiungi nuovo giocatore"]
+    player_choice = st.selectbox(
+        "Giocatore",
+        player_options if player_options else ["+ Aggiungi nuovo giocatore"],
+    )
+    if player_choice == "+ Aggiungi nuovo giocatore":
+        player_name = st.text_input("Nome nuovo giocatore")
     else:
         player_name = player_choice
 
     quote_value = st.number_input(
-        "Quote (e.g. 2.10)",
+        "Quota (es. 2.10)",
         min_value=1e-6,
         value=2.10,
         step=0.01,
@@ -208,15 +213,15 @@ def main() -> None:
     )
     quote_value = round(float(quote_value), 2)
     implied_probability = 1 / quote_value if quote_value else 0.0
-    st.metric("Implied probability", f"{implied_probability:.2%}")
+    st.metric("Probabilita implicita", f"{implied_probability:.2%}")
 
-    submit = st.button("Save quote", type="primary")
+    submit = st.button("Salva quota", type="primary")
     if submit:
         if not event_name:
-            st.error("Please choose or create an event.")
+            st.error("Scegli o crea un evento.")
             st.stop()
         if not player_name:
-            st.error("Please choose or create a player.")
+            st.error("Scegli o crea un giocatore.")
             st.stop()
 
         row = {
@@ -228,7 +233,7 @@ def main() -> None:
             "implied_probability": round(implied_probability, 6),
         }
         storage.append(row)
-        st.success("Quote saved.")
+        st.success("Quota salvata.")
         st.rerun()
 
 
