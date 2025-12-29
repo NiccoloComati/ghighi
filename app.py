@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+import altair as alt
 import streamlit as st
 
 try:
@@ -132,13 +133,36 @@ def main() -> None:
         with chart_col:
             chart_data = event_data.dropna(subset=["player", "date"]).copy()
             chart_data = chart_data.sort_values("date")
-            pivot = chart_data.pivot_table(
-                index="date",
-                columns="player",
-                values="quote",
-                aggfunc="last",
-            )
-            st.line_chart(pivot, use_container_width=True)
+            if chart_data.empty:
+                st.write("No quotes yet for this event.")
+            else:
+                max_quote = chart_data["quote"].max()
+                y_min = 1.0
+                y_max = max_quote * 1.1 if pd.notna(max_quote) else 2.0
+                chart = (
+                    alt.Chart(chart_data)
+                    .mark_line(point=True)
+                    .encode(
+                        x=alt.X("date:T", title="Date"),
+                        y=alt.Y(
+                            "quote:Q",
+                            title="Quote",
+                            scale=alt.Scale(domain=[y_min, y_max]),
+                        ),
+                        color=alt.Color("player:N", title="Player"),
+                        tooltip=[
+                            alt.Tooltip("player:N", title="Player"),
+                            alt.Tooltip("date:T", title="Date", format="%Y-%m-%d"),
+                            alt.Tooltip("quote:Q", title="Quote", format=".2f"),
+                            alt.Tooltip(
+                                "implied_probability:Q",
+                                title="Implied prob",
+                                format=".2%",
+                            ),
+                        ],
+                    )
+                )
+                st.altair_chart(chart, use_container_width=True)
 
         with table_col:
             if event_data.empty:
@@ -154,8 +178,13 @@ def main() -> None:
                     .tail(1)
                 )
                 recent_table = latest_idx[
-                    ["timestamp_utc", "player", "date", "quote", "implied_probability"]
-                ].sort_values("timestamp_utc", ascending=False)
+                    ["date", "player", "quote", "implied_probability"]
+                ].sort_values("date", ascending=False)
+                recent_table["date"] = recent_table["date"].dt.strftime("%Y-%m-%d")
+                recent_table["quote"] = recent_table["quote"].map(lambda x: f"{x:.2f}")
+                recent_table["implied_probability"] = recent_table[
+                    "implied_probability"
+                ].map(lambda x: f"{x:.2%}")
                 st.dataframe(recent_table, use_container_width=True, height=360)
 
         st.divider()
