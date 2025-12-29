@@ -145,7 +145,11 @@ def main() -> None:
                     alt.Chart(chart_data)
                     .mark_line(point=True)
                     .encode(
-                        x=alt.X("date:T", title="Data"),
+                        x=alt.X(
+                            "date:T",
+                            title="Data",
+                            axis=alt.Axis(format="%Y-%m-%d"),
+                        ),
                         y=alt.Y(
                             "quote:Q",
                             title="Quota",
