@@ -127,25 +127,10 @@ def main() -> None:
         event_data = data[data["event"] == event_name].copy()
         event_data["date"] = pd.to_datetime(event_data["date"], errors="coerce")
 
-        player_date_counts = (
-            event_data.dropna(subset=["player", "date"])
-            .groupby("player")["date"]
-            .nunique()
-        )
-        players_with_series = player_date_counts[player_date_counts >= 2].index.tolist()
+        chart_col, table_col = st.columns([2, 1], gap="large")
 
-        if not players_with_series:
-            st.info(
-                "Plot will be displayed when more than 2 quotes are input on different days for at least one player."
-            )
-            if not event_data.empty:
-                display_table = (
-                    event_data[["player", "date", "quote", "implied_probability"]]
-                    .sort_values(["player", "date"], ascending=[True, True])
-                )
-                st.dataframe(display_table, use_container_width=True)
-        else:
-            chart_data = event_data[event_data["player"].isin(players_with_series)].copy()
+        with chart_col:
+            chart_data = event_data.dropna(subset=["player", "date"]).copy()
             chart_data = chart_data.sort_values("date")
             pivot = chart_data.pivot_table(
                 index="date",
@@ -154,6 +139,24 @@ def main() -> None:
                 aggfunc="last",
             )
             st.line_chart(pivot, use_container_width=True)
+
+        with table_col:
+            if event_data.empty:
+                st.write("No quotes yet for this event.")
+            else:
+                event_data["timestamp_utc"] = pd.to_datetime(
+                    event_data["timestamp_utc"], errors="coerce"
+                )
+                latest_idx = (
+                    event_data.dropna(subset=["player", "timestamp_utc"])
+                    .sort_values("timestamp_utc")
+                    .groupby("player", as_index=False)
+                    .tail(1)
+                )
+                recent_table = latest_idx[
+                    ["timestamp_utc", "player", "date", "quote", "implied_probability"]
+                ].sort_values("timestamp_utc", ascending=False)
+                st.dataframe(recent_table, use_container_width=True, height=360)
 
         st.divider()
 
@@ -167,7 +170,14 @@ def main() -> None:
     else:
         player_name = player_choice
 
-    quote_value = st.number_input("Quote (e.g. 2.1)", min_value=1e-6, value=2.1, step=0.1, format="%.4f")
+    quote_value = st.number_input(
+        "Quote (e.g. 2.10)",
+        min_value=1e-6,
+        value=2.10,
+        step=0.01,
+        format="%.2f",
+    )
+    quote_value = round(float(quote_value), 2)
     implied_probability = 1 / quote_value if quote_value else 0.0
     st.metric("Implied probability", f"{implied_probability:.2%}")
 
@@ -185,8 +195,8 @@ def main() -> None:
             "date": _today_utc_date_str(),
             "player": player_name.strip(),
             "event": event_name.strip(),
-            "quote": float(quote_value),
-            "implied_probability": implied_probability,
+            "quote": quote_value,
+            "implied_probability": round(implied_probability, 6),
         }
         storage.append(row)
         st.success("Quote saved.")
